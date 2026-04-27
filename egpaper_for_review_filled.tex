@@ -1,0 +1,179 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{cvpr}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage[pagebackref=true,breaklinks=true,letterpaper=true,colorlinks,bookmarks=false]{hyperref}
+
+% \cvprfinalcopy
+\def\cvprPaperID{COMP6252-CW1}
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+\ifcvprfinal\pagestyle{empty}\fi
+\begin{document}
+
+\title{Music Genre Classification on GTZAN Using CNNs, LSTMs and GAN-based Augmentation}
+
+\author{[Your Name]\\
+ECS User ID: [Your ECS ID]
+}
+
+\maketitle
+
+\begin{abstract}
+This report presents a comparative study of six neural classifiers for GTZAN music genre classification. The first four models classify $180\times180$ Mel-spectrogram images using a fully connected network, a CNN, a CNN with batch normalisation, and the same batch-normalised CNN trained with RMSProp. The final two models use audio-derived feature sequences with an LSTM classifier, with and without conditional GAN augmentation. A fixed 70/20/10 train/validation/test split is used, validation accuracy selects the best checkpoint, and the test set is used only for final reporting. The best model is the batch-normalised CNN trained for 100 epochs, achieving 75.2\% test accuracy. The best audio model is the LSTM, achieving 72.0\% test accuracy. The results show that architecture and input representation are more important than optimiser choice, and that GAN augmentation is useful only when generated samples are sufficiently realistic.
+\end{abstract}
+
+\section{Introduction}
+
+This coursework addresses the GTZAN ten-class music genre classification task. Six neural network structures are implemented and compared: a fully connected network, a CNN, a CNN with batch normalisation, the same CNN trained with RMSProp, an LSTM audio classifier, and an LSTM classifier trained with GAN-based data augmentation. The goal is to evaluate how architecture, batch normalisation, optimiser choice, temporal modelling, and GAN augmentation affect music classification performance.
+
+\section{Dataset and Pre-processing}
+
+The GTZAN dataset contains ten genres: blues, classical, country, disco, hiphop, jazz, metal, pop, reggae, and rock. It is small and approximately class-balanced, with about 100 tracks per genre, while several genres share timbral or rhythmic traits. This makes the task sensitive to the chosen split and motivates class-level error analysis rather than relying only on overall accuracy. For \texttt{Net1}--\texttt{Net4}, the provided Mel-spectrogram images are used. Each image is resized to $180\times180$ using \texttt{torchvision.transforms.Resize}, converted to a tensor, and normalised. For \texttt{Net5} and \texttt{Net6}, audio-derived 3-second feature sequences are used: each 30-second track becomes a sequence of ten audio feature vectors.
+
+All experiments use a fixed random seed and a class-balanced 70/20/10 split for training, validation, and testing. The same split, preprocessing pipeline, and evaluation protocol are used across comparable models. The validation set is used for model selection and tuning, while the test set is only used for final evaluation. Audio features are standardised using training-set statistics only, so validation and test data do not leak into preprocessing. The code automatically uses CUDA if available, otherwise CPU.
+
+\section{Model Architectures and Training Protocol}
+
+\subsection{Architectures}
+
+The complete coursework pipeline is managed in \texttt{coursework1\_runner.ipynb}; reusable code is implemented in \texttt{music\_genre\_source.py}. The six models are defined and run in order as \texttt{Net1}--\texttt{Net6}. Table~\ref{tab:models} summarises the architectures.
+
+\texttt{Net1} is a fully connected baseline with two hidden layers of 512 and 128 units. \texttt{Net2} follows the required CNN pattern: Conv-Conv-Pool-Conv-Conv-Pool-FC, using $3\times3$ kernels and channels 32, 64, 128, and 128. \texttt{Net3} adds batch normalisation after convolutional layers. \texttt{Net4} keeps the \texttt{Net3} architecture but uses RMSProp. \texttt{Net5} is a two-layer bidirectional LSTM for audio sequences. \texttt{Net6} uses the same LSTM classifier, but augments only the training set with a conditional GAN that generates genre-conditioned audio feature sequences. The trainable parameter counts are approximately 49.8M for \texttt{Net1}, 0.768M for \texttt{Net2}, 0.769M for \texttt{Net3}/\texttt{Net4}, and 0.180M for \texttt{Net5}/\texttt{Net6}; thus \texttt{Net1} is simple conceptually but very large because of the flattened image input, showing why parameter count alone does not imply better inductive bias.
+
+\subsection{Training Details}
+
+All classifiers use cross-entropy loss. The submitted runs use batch size 16. \texttt{Net1}, \texttt{Net2}, and \texttt{Net3} use Adam with learning rate $10^{-4}$. \texttt{Net4} uses RMSProp with learning rate $10^{-4}$. The four image models are trained for both 50 and 100 epochs. \texttt{Net5} and \texttt{Net6} are trained for 80 epochs using Adam with learning rate $10^{-3}$. The model checkpoint with the best validation accuracy is selected for final testing. Training/validation accuracy, error rate, and loss curves are saved for every model.
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llcllll}
+\toprule
+Model & Input & Main architecture & Optimiser & LR & Batch & Epochs \\
+\midrule
+Net1 & Spectrogram & FC: 512, 128 & Adam & $10^{-4}$ & 16 & 50/100 \\
+Net2 & Spectrogram & Conv-Conv-Pool-Conv-Conv-Pool-FC & Adam & $10^{-4}$ & 16 & 50/100 \\
+Net3 & Spectrogram & Net2 + BatchNorm & Adam & $10^{-4}$ & 16 & 50/100 \\
+Net4 & Spectrogram & Same as Net3 & RMSProp & $10^{-4}$ & 16 & 50/100 \\
+Net5 & Audio features & 2-layer BiLSTM + FC & Adam & $10^{-3}$ & 16 & 80 \\
+Net6 & Audio features & Conditional GAN + Net5 & Adam & $10^{-3}$ & 16 & 80 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of the six required models and training settings.}
+\label{tab:models}
+\end{table*}
+
+\section{Results}
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Model & 50 Val Acc & 50 Test Acc & 100 Val Acc & 100 Test Acc & Best Test Acc \\
+\midrule
+Net1 & 0.352 & 0.317 & 0.417 & 0.366 & 0.366 \\
+Net2 & 0.543 & 0.545 & 0.538 & 0.535 & 0.545 \\
+Net3 & 0.673 & 0.703 & 0.729 & 0.752 & 0.752 \\
+Net4 & 0.688 & 0.713 & 0.693 & 0.723 & 0.723 \\
+Net5 & N/A & N/A & N/A & N/A & 0.720 \\
+Net6 & N/A & N/A & N/A & N/A & 0.680 \\
+\bottomrule
+\end{tabular}
+\caption{Main accuracy results. \texttt{Net5} and \texttt{Net6} are audio models trained for 80 epochs, so 50/100 image-epoch columns are not applicable.}
+\label{tab:results}
+\end{table*}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{test_accuracy_comparison.png}
+\caption{Test accuracy comparison across the final submitted experiments.}
+\label{fig:testacc}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{net3_100_confusion_matrix.png}
+\caption{Confusion matrix for the best model, \texttt{Net3} trained for 100 epochs.}
+\label{fig:cm}
+\end{figure}
+
+Because the split is approximately class-balanced, top-1 accuracy is used as the primary metric, while per-class recall and confusion matrices are used to inspect class-specific errors. Table~\ref{tab:results} and Figure~\ref{fig:testacc} report the performance of all six methods. \texttt{Net3} trained for 100 epochs is the best model with 0.752 test accuracy. The best audio model is \texttt{Net5}, which reaches 0.720 test accuracy after 80 epochs. Figure~\ref{fig:cm} supports the error analysis by showing the per-class behaviour of the best model.
+
+\section{Discussion}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrl}
+\toprule
+Comparison & $\Delta$ Test Acc. & Finding \\
+\midrule
+Net2 100 $\rightarrow$ Net3 100 & +0.217 & BatchNorm helps most \\
+Net3 100 $\rightarrow$ Net4 100 & -0.030 & Adam better here \\
+Net3 50 $\rightarrow$ Net3 100 & +0.049 & longer BN-CNN training helps \\
+Net2 50 $\rightarrow$ Net2 100 & -0.010 & slight overfitting \\
+Net5 $\rightarrow$ Net6 & -0.040 & GAN samples not beneficial \\
+\bottomrule
+\end{tabular}
+\caption{Ablation-style summary of the main experimental factors.}
+\label{tab:ablation}
+\end{table}
+
+\subsection{Effect of Architecture}
+
+The architecture comparison shows the importance of using an appropriate inductive bias. \texttt{Net1} is the weakest model, with best test accuracy 0.366, because flattening the spectrogram destroys the local time-frequency structure. A dense network must learn relationships between distant pixels from a very high-dimensional vector, which is difficult with limited data. \texttt{Net2} improves to 0.545 because convolutional filters learn local patterns such as harmonic bands, percussive textures and energy changes. \texttt{Net3} and \texttt{Net4} then improve further by stabilising this CNN structure. \texttt{Net5} demonstrates that LSTMs are also suitable when audio is represented as a sequence, but its performance depends strongly on the quality and length of the audio features. \texttt{Net6} adds a GAN stage, so its performance depends not only on the LSTM but also on whether generated samples are realistic and label-consistent.
+
+\subsection{Effect of Batch Normalisation}
+
+Comparing \texttt{Net2} and \texttt{Net3} isolates the effect of adding batch normalisation to the CNN. \texttt{Net3} improves from 0.535--0.545 test accuracy for \texttt{Net2} to 0.703--0.752. This is a large gain, so batch normalisation is not just a minor implementation detail. It normalises intermediate activations, which improves gradient flow and makes optimisation less sensitive to parameter scale. On a small dataset such as GTZAN, this also has a mild regularising effect because it reduces unstable activation shifts during training. The improvement at 100 epochs suggests that batch normalisation helps the model keep learning useful convolutional features for longer before overfitting dominates.
+
+\subsection{Effect of Optimiser}
+
+\texttt{Net3} and \texttt{Net4} have the same architecture, so their comparison is the fairest optimiser experiment. RMSProp is competitive: \texttt{Net4} reaches 0.713 test accuracy at 50 epochs and 0.723 at 100 epochs. However, it does not outperform Adam in \texttt{Net3}, which reaches 0.752. RMSProp adapts the learning rate using a moving average of squared gradients, which can help with non-stationary gradients. Adam also uses adaptive scaling but additionally includes momentum estimates, which may explain its stronger final result here. The higher validation loss for \texttt{Net4} at 100 epochs suggests that RMSProp might require a different learning rate or stronger regularisation to match Adam.
+
+\subsection{Effect of Training Length}
+
+The 50/100 epoch comparison shows that longer training is useful only when validation behaviour also improves. \texttt{Net1}, \texttt{Net3}, and \texttt{Net4} obtain higher test accuracy at 100 epochs, suggesting that these models were still benefiting from additional optimisation. In contrast, \texttt{Net2} decreases slightly from 0.545 to 0.535, which indicates that longer training can also overfit. The saved curves show the typical pattern: training accuracy continues increasing while validation loss flattens or rises. For \texttt{Net5}, training accuracy reaches almost 1.0 while validation accuracy peaks earlier, again showing that the best checkpoint should be chosen by validation accuracy rather than the final epoch.
+
+\subsection{Effect of GAN Augmentation}
+
+\texttt{Net6} does not improve over \texttt{Net5}: test accuracy decreases from 0.720 to 0.680. This does not mean the idea of GAN augmentation is wrong; rather, it shows that generated data quality is critical. The GAN only augments the training set, so validation and test data remain clean. However, if generated feature sequences are unrealistic, mode-collapsed, or weakly matched to their genre labels, they can act like noisy training examples. In that case, doubling the training set does not necessarily increase useful diversity. A stronger generator, better sample filtering, or spectrogram/audio-domain augmentation might be needed before GAN augmentation improves the LSTM.
+
+\subsection{Error Analysis}
+
+The confusion reports show that not all genres are equally separable. For the best CNN, metal has recall 1.00, while rock has recall only 0.30. This suggests that strong high-energy spectral patterns are easy to detect for metal, but rock overlaps with metal, country and blues in instrumentation and timbre. For the LSTM model, jazz and metal are strong, but hiphop and rock have recall 0.50 and reggae has recall 0.60. These weaker classes likely share rhythmic or production characteristics with disco, pop or rock. More generally, pairs such as rock/metal, disco/pop, blues/country and classical/jazz can be difficult because they may share tempo, instrumentation or spectral texture. This explains why overall accuracy is limited even when the model learns useful representations.
+
+\section{Conclusion}
+
+All six required classifiers were implemented and evaluated. The best model is \texttt{Net3}, a batch-normalised CNN trained for 100 epochs, with 75.2\% test accuracy. The best audio model is \texttt{Net5}, a bidirectional LSTM on 3-second audio feature sequences, with 72.0\% test accuracy. The results show that CNNs are preferable to dense networks for spectrogram images, batch normalisation is beneficial, and GAN augmentation is not guaranteed to help unless synthetic samples are realistic and discriminative. A limitation is that the experiments use one fixed split, so exact rankings may vary with another random seed. Future work should repeat evaluation over multiple seeds, test stronger audio representations or pretrained audio encoders, and apply quality filtering before using GAN-generated samples.
+
+\clearpage
+\section{Reflection: GAN-based Data Augmentation for Audio Classification}
+
+GAN-based data augmentation is important because audio data can be expensive to collect and label. Small datasets such as GTZAN make deep models prone to overfitting, especially for genres with overlapping acoustic characteristics. A good generator could create additional labelled training examples, improve robustness, and help low-resource audio classification tasks such as environmental sound recognition, medical audio analysis, and music retrieval.
+
+Current technologies include basic GANs, conditional GANs, DCGAN-style spectrogram generators, WaveGAN for raw waveform generation, SpecGAN for spectrogram generation, and more recent diffusion-based audio generators. In addition, self-supervised audio representation models such as wav2vec-style encoders, audio spectrogram transformers, and contrastive audio-language models can reduce dependence on labelled data. For this coursework I used a conditional GAN because the generated samples need to be controlled by genre label.
+
+At my current stage, I can implement a basic conditional GAN, a CNN classifier, and an LSTM classifier in PyTorch. I can also add generated samples only to the training set and keep validation/test data clean. However, I cannot yet reliably implement high-quality raw audio generation. The main difficulties are the high dimensionality of audio waveforms, unstable adversarial training, mode collapse, evaluating generated audio quality, and ensuring that generated samples are label-consistent. GAN training requires careful balance between generator and discriminator; otherwise the generated data can harm the classifier, as seen in \texttt{Net6}.
+
+The positive impact of GAN-based augmentation is that it may reduce data collection cost, improve performance in small-data settings, and make classifiers more robust to variation. It could support music education, recommendation systems, audio search, and accessibility tools. The negative impact is that low-quality synthetic data can introduce bias or noise, and generated music raises copyright and artistic-style imitation concerns. It can also be misused to create deceptive audio. My future vision is that audio augmentation should combine stronger generative models with quality filtering, human evaluation, and transparent reporting of synthetic data usage. In practice, GAN or diffusion augmentation should be used only when it demonstrably improves validation and test performance.
+
+{\small
+\bibliographystyle{ieee_fullname}
+\begin{thebibliography}{9}
+\bibitem{gtzan}
+G. Tzanetakis and P. Cook. Musical genre classification of audio signals. \emph{IEEE Transactions on Speech and Audio Processing}, 10(5):293--302, 2002.
+\end{thebibliography}
+}
+
+\end{document}

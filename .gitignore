@@ -1,0 +1,50 @@
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset and generated experiment outputs
+dataset/
+outputs/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Generated plots and exported reports
+net*_confusion_matrix.png
+test_accuracy_comparison.png
+pdf_page*_img_*.png
+*.pdf
+
+# Archives and submission bundles
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
