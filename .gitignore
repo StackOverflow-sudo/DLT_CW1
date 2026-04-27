@@ -23,13 +23,17 @@ dataset/
 net*_confusion_matrix.png
 test_accuracy_comparison.png
 pdf_page*_img_*.png
-*.pdf
+# *.pdf
 
 # Archives and submission bundles
 *.zip
 *.tar
 *.tar.gz
 *.7z
+
+# Markdown drafts, but keep the project README
+*.md
+!README.md
 
 # LaTeX build artifacts
 *.aux
