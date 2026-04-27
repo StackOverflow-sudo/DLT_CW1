@@ -35,6 +35,9 @@ pdf_page*_img_*.png
 *.md
 !README.md
 
+*.pdf
+!report.pdf
+
 # LaTeX build artifacts
 *.aux
 *.bbl
