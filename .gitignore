@@ -13,7 +13,7 @@ ENV/
 
 # Dataset and generated experiment outputs
 dataset/
-outputs/
+# outputs/
 *.pt
 *.pth
 *.ckpt

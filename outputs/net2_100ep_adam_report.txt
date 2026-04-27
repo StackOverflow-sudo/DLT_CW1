@@ -1,0 +1,16 @@
+              precision    recall  f1-score   support
+
+       blues       0.38      0.60      0.46        10
+   classical       0.77      1.00      0.87        10
+     country       0.50      0.50      0.50        10
+       disco       0.43      0.60      0.50        10
+      hiphop       0.40      0.20      0.27        10
+        jazz       0.25      0.09      0.13        11
+       metal       0.75      0.90      0.82        10
+         pop       0.67      0.60      0.63        10
+      reggae       0.42      0.50      0.45        10
+        rock       0.67      0.40      0.50        10
+
+    accuracy                           0.53       101
+   macro avg       0.52      0.54      0.51       101
+weighted avg       0.52      0.53      0.51       101
